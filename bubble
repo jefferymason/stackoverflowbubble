@@ -1,0 +1,114 @@
+class Bubble(context: Context): CircleImageView(context) {
+    companion object {
+        const val SCALE = 3
+        const val MAX_SIZE = 45
+        const val MIN_SIZE = 10
+    }
+
+    private var bubbleSize = 0
+    private var name = ""
+    private var picture: String? = ""
+    private var animator: ValueAnimator? = null
+    private var isImageLoaded = false
+
+    init {
+        foreground = ContextCompat.getDrawable(context, R.drawable.bubble)
+    }
+
+    // Press the bubble and it pops.  
+    override fun performClick(): Boolean {
+        Toast.makeText(context,name, Toast.LENGTH_SHORT).show()
+        resetView()
+        return super.performClick()
+    }
+
+    fun bubbleItem(picture: Uri, name: String): Bubble {
+        this.name = name
+        this.picture = picture.toString()
+        return this
+    }
+
+    override fun onAttachedToWindow() {
+        inflateImage(picture!!)
+        super.onAttachedToWindow()
+    }
+
+    fun update() {
+        val screen = (context as Activity).windowManager.defaultDisplay
+        val size = Point()
+
+        generateBubbleSize()
+        screen.getSize(size)
+        x = abs(Random.nextFloat() * size.x - (bubbleSize/2))
+        y = size.y * 1f
+
+        animator = moveAnimation(size.y)
+        animator?.start()
+    }
+
+    private fun generateBubbleSize() {
+        bubbleSize = (Random.nextInt( (MAX_SIZE - MIN_SIZE) + 1) + MIN_SIZE) * SCALE
+        layoutParams = RelativeLayout.LayoutParams (
+            bubbleSize,
+            bubbleSize
+                )
+        borderWidth = (bubbleSize/15 * SCALE)
+        borderColor = Color.TRANSPARENT
+    }
+
+    private fun inflateImage(picture: String) {
+        if (picture.isEmpty() || isImageLoaded) {
+            update()
+            return
+        }
+        Glide.with(this)
+            .load(picture)
+            .listener(object : RequestListener<Drawable> {
+                override fun onLoadFailed(
+                    e: GlideException?,
+                    model: Any?,
+                    target: com.bumptech.glide.request.target.Target<Drawable>?,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    update()
+                    return false
+                }
+
+                override fun onResourceReady(
+                    resource: Drawable?,
+                    model: Any?,
+                    target: com.bumptech.glide.request.target.Target<Drawable>?,
+                    dataSource: com.bumptech.glide.load.DataSource?,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    update()
+                    isImageLoaded = true
+                    return false
+                }
+            })
+            .into(this)
+    }
+
+    private fun moveAnimation(screenHeight: Int): ValueAnimator {
+
+        val radius = (bubbleSize/2)
+        val animator: ValueAnimator = ValueAnimator.ofFloat(screenHeight.toFloat(), screenHeight/4f - radius * 10)
+
+        with(animator) {
+            addUpdateListener { animation ->
+                y = animation.animatedValue as Float
+            }
+            doOnEnd {
+                val layout = (parent as ViewGroup)
+                layout.removeView(this@Bubble)
+            }
+            duration = 3000L + 100L * radius.toLong()
+            interpolator = LinearInterpolator()
+        }
+        return animator
+    }
+
+    private fun resetView() {
+        animator?.end()
+    }
+}
